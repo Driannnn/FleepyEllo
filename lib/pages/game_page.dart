@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:ui'; // ⬅️ untuk ImageFilter.blur
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:audioplayers/audioplayers.dart'; // ⬅️ Audio
 
 import '../models/pipe.dart';
 import '../paint/world_painter.dart';
@@ -51,6 +52,11 @@ class _GamePageState extends State<GamePage> {
   int score = 0;
   int best = 0;
 
+  // ===== Audio (EFX) =====
+  // Gunakan 2 player terpisah untuk sfx agar tidak saling berebut channel.
+  final AudioPlayer _flapPlayer = AudioPlayer();
+  final AudioPlayer _hitPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
@@ -63,11 +69,20 @@ class _GamePageState extends State<GamePage> {
       pipeGapH = widget.config!.pipeGapH;
       pipeSpeed = widget.config!.pipeSpeed;
     }
+
+    // Siapkan mode rilis SFX agar selalu putar dari awal (tidak loop).
+    _flapPlayer.setReleaseMode(ReleaseMode.stop);
+    _hitPlayer.setReleaseMode(ReleaseMode.stop);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+
+    // Bebaskan resource audio
+    _flapPlayer.dispose();
+    _hitPlayer.dispose();
+
     super.dispose();
   }
 
@@ -140,7 +155,13 @@ class _GamePageState extends State<GamePage> {
       _startGame();
     }
     if (gameOver || paused) return;
+
     setState(() => birdVel = flapImpulse);
+
+    // ===== Play SFX: flap =====
+    // Stop dulu agar cepat retrigger saat tap cepat.
+    _flapPlayer.stop();
+    _flapPlayer.play(AssetSource('assets/sfx/flap.wav'));
   }
 
   void _update() {
@@ -168,6 +189,7 @@ class _GamePageState extends State<GamePage> {
           p.passed = true;
           score++;
           if (score > best) best = score;
+          // (Tidak ada SFX score—sesuai permintaan: hanya flap & hit)
         }
       }
 
@@ -203,6 +225,10 @@ class _GamePageState extends State<GamePage> {
     started = false;
     paused = false;
     _timer?.cancel();
+
+    // ===== Play SFX: hit =====
+    _hitPlayer.stop();
+    _hitPlayer.play(AssetSource('assets/sfx/hit.wav'));
   }
 
   // ====== Panel PAUSE mengambang: Liquid Glass ======
